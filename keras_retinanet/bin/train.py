@@ -118,6 +118,14 @@ def create_models(backbone_retinanet, num_classes, weights, multi_gpu=0,
     prediction_model = retinanet_bbox(model=model, anchor_params=anchor_params)
 
     # compile model
+    '''
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+    lr,
+    decay_steps=args.lr_decay_step*args.steps,
+    decay_rate=args.lr_decay,
+    staircase=True)
+    '''
+
     training_model.compile(
         loss={
             'regression'    : losses.smooth_l1(),
@@ -188,6 +196,7 @@ def create_callbacks(model, training_model, prediction_model, validation_generat
         checkpoint = RedirectModel(checkpoint, model)
         callbacks.append(checkpoint)
 
+    '''
     callbacks.append(keras.callbacks.ReduceLROnPlateau(
         monitor    = 'loss',
         factor     = 0.1,
@@ -198,15 +207,24 @@ def create_callbacks(model, training_model, prediction_model, validation_generat
         cooldown   = 0,
         min_lr     = 0
     ))
+    '''
 
     if args.tensorboard_dir:
         callbacks.append(tensorboard_callback)
 
+    class loss_decay(keras.callbacks.Callback):
+        def on_epoch_begin(self, epoch, logs=None):
+            if (epoch == args.lr_decay_step - 1):
+                keras.backend.set_value(self.model.optimizer.lr, self.model.optimizer.lr * args.lr_decay)
+    
+
+
     class printLr(keras.callbacks.Callback):
         def on_epoch_end(self, epoch, logs=None):
-            print('The average loss for epoch {} is {:7.2f}.'.format(epoch, logs['loss']))
+            print(self.model.optimizer.lr)
 
     callbacks.append(printLr())
+    callbacks.append(loss_decay())
 
     return callbacks
 
@@ -437,8 +455,8 @@ def parse_args(args):
     parser.add_argument('--config',           help='Path to a configuration parameters .ini file.')
     parser.add_argument('--weighted-average', help='Compute the mAP using the weighted average of precisions among classes.', action='store_true')
     parser.add_argument('--compute-val-loss', help='Compute validation loss during training', dest='compute_val_loss', action='store_true')
-    #parser.add_argument('--lr-decay',         help='Learning rate decay rate.', type=float, default=0)
-    #parser.add_argument('--lr-decay-step',    help='Learning rate decay step.', type=float, default=6)
+    parser.add_argument('--lr-decay',         help='Learning rate decay rate.', type=float, default=0)
+    parser.add_argument('--lr-decay-step',    help='Learning rate decay step.', type=float, default=6)
 
 
     # Fit generator arguments

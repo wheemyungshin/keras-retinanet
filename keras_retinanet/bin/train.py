@@ -202,6 +202,12 @@ def create_callbacks(model, training_model, prediction_model, validation_generat
     if args.tensorboard_dir:
         callbacks.append(tensorboard_callback)
 
+    class printLr(keras.callbacks.Callback):
+        def on_epoch_end(self, epoch, logs=None):
+            print('The average loss for epoch {} is {:7.2f}.'.format(epoch, logs['loss']))
+
+    callbacks.append(printLr())
+
     return callbacks
 
 

@@ -214,7 +214,7 @@ def create_callbacks(model, training_model, prediction_model, validation_generat
 
     class loss_decay(keras.callbacks.Callback):
         def on_epoch_begin(self, epoch, logs=None):
-            if (epoch == args.lr_decay_step - 1):
+            if (epoch == args.lr_decay_step):
                 keras.backend.set_value(self.model.optimizer.lr, self.model.optimizer.lr * args.lr_decay)
     
 

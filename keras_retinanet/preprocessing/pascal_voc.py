@@ -91,7 +91,9 @@ class PascalVocGenerator(Generator):
         self.data_dir             = data_dir
         self.set_name             = set_name
         self.classes              = classes
-        self.image_names          = [l.strip().split(None, 1)[0] for l in open(os.path.join(data_dir, 'ImageSets', 'Main', set_name + '.txt')).readlines()]
+        self.image_names          = [l.strip().split(None, 1)[0] for l in open(os.path.join(data_dir, 'VOC2007' , 'ImageSets', 'Main', set_name + '.txt')).readlines()]+\
+                                    [l.strip().split(None, 1)[0] for l in open(os.path.join(data_dir, 'VOC2012', 'ImageSets', 'Main',set_name + '.txt')).readlines()]
+        self.len_2007 = len([l.strip().split(None, 1)[0] for l in open(os.path.join(data_dir, 'VOC2007' , 'ImageSets', 'Main', set_name + '.txt')).readlines()])
         self.image_extension      = image_extension
         self.skip_truncated       = skip_truncated
         self.skip_difficult       = skip_difficult
@@ -135,14 +137,22 @@ class PascalVocGenerator(Generator):
     def image_aspect_ratio(self, image_index):
         """ Compute the aspect ratio for an image with image_index.
         """
-        path  = os.path.join(self.data_dir, 'JPEGImages', self.image_names[image_index] + self.image_extension)
+        if image_index < self.len_2007:
+            path = os.path.join(self.data_dir, 'VOC2007', 'JPEGImages', self.image_names[image_index] + self.image_extension)
+        else:
+            path = os.path.join(self.data_dir, 'VOC2012', 'JPEGImages', self.image_names[image_index] + self.image_extension)
         image = Image.open(path)
         return float(image.width) / float(image.height)
 
     def image_path(self, image_index):
         """ Get the path to an image.
         """
-        return os.path.join(self.data_dir, 'JPEGImages', self.image_names[image_index] + self.image_extension)
+        if image_index < self.len_2007:
+            path = os.path.join(self.data_dir, 'VOC2007', 'JPEGImages', self.image_names[image_index] + self.image_extension)
+        else:
+            path = os.path.join(self.data_dir, 'VOC2012', 'JPEGImages', self.image_names[image_index] + self.image_extension)
+
+        return path
 
     def load_image(self, image_index):
         """ Load an image at the image_index.
@@ -195,7 +205,11 @@ class PascalVocGenerator(Generator):
         """
         filename = self.image_names[image_index] + '.xml'
         try:
-            tree = ET.parse(os.path.join(self.data_dir, 'Annotations', filename))
+            if image_index < self.len_2007:
+                path = os.path.join(self.data_dir, 'VOC2007', 'Annotations', filename)
+            else:
+                path = os.path.join(self.data_dir, 'VOC2012', 'Annotations', filename)
+            tree = ET.parse(path)
             return self.__parse_annotations(tree.getroot())
         except ET.ParseError as e:
             raise_from(ValueError('invalid annotations file: {}: {}'.format(filename, e)), None)

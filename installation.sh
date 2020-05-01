@@ -1,3 +1,5 @@
+apt-get update
+apt-get install libgtk2.0-dev
 pip install numpy
 pip install .
 pip install tensorflow

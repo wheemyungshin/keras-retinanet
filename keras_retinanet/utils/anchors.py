@@ -19,6 +19,7 @@ import keras
 
 from ..utils.compute_overlap import compute_overlap
 
+#from ..utils.craft_utils import get_heatmap
 
 class AnchorParameters:
     """ The parameteres that define how anchors are generated.
@@ -55,8 +56,8 @@ def anchor_targets_bbox(
     image_group,
     annotations_group,
     num_classes,
-    negative_overlap=0.4,
-    positive_overlap=0.5
+    negative_overlap=0.35,
+    positive_overlap=0.4
 ):
     """ Generate anchor targets for bbox detection.
 
@@ -92,16 +93,29 @@ def anchor_targets_bbox(
     for index, (image, annotations) in enumerate(zip(image_group, annotations_group)):
         if annotations['bboxes'].shape[0]:
             # obtain indices of gt annotations with the greatest overlap
-            positive_indices, ignore_indices, argmax_overlaps_inds = compute_gt_annotations(anchors, annotations['bboxes'], negative_overlap, positive_overlap)
+            positive_indices, ignore_indices, argmax_overlaps_inds, soft_label = compute_gt_annotations(anchors, annotations['bboxes'], negative_overlap, positive_overlap)
 
             labels_batch[index, ignore_indices, -1]       = -1
             labels_batch[index, positive_indices, -1]     = 1
+            #labels_batch[index, :, -1] = soft_label # all the label batch is considered
 
             regression_batch[index, ignore_indices, -1]   = -1
             regression_batch[index, positive_indices, -1] = 1
+            #regression_batch[index, :, -1] = soft_label  # all the label batch is considered
+
+            #print("max_overlap shpaes: ", max_overlaps.shape)
+            #print("max_overlap", max_overlaps)
+            #print("labels_batch shpaes: ", labels_batch.shape)
+            #print("labels_batch non zero: ", labels_batch[labels_batch!=0])
+            #print("annotations-labels shpaes: ", annotations['labels'].shape)
+            #print("annotations-labels: ", annotations['labels'][argmax_overlaps_inds[positive_indices]].astype(int))
+
+            #print("labels_batch shpaes: ", labels_batch.shape)
+            #print("positive_indices shpaes: ", positive_indices.shape)
+            #print("max_overlaps[positive_indices]: ", soft_label[positive_indices])
 
             # compute target class labels
-            labels_batch[index, positive_indices, annotations['labels'][argmax_overlaps_inds[positive_indices]].astype(int)] = 1
+            labels_batch[index, :, annotations['labels'][argmax_overlaps_inds[positive_indices]].astype(int)] = soft_label#it was 1 before.
 
             regression_batch[index, :, :-1] = bbox_transform(anchors, annotations['bboxes'][argmax_overlaps_inds, :])
 
@@ -115,12 +129,38 @@ def anchor_targets_bbox(
 
     return regression_batch, labels_batch
 
+'''
+def compute_soft_label(
+    anchors,
+    annotations
+):
+    extent = int(spread * sigma)
+    gaussian_heatmap = np.zeros([2 * extent, 2 * extent], dtype=np.float32)
+    for i in range(2 * extent):
+        for j in range(2 * extent):
+            gaussian_heatmap[i, j] = 1 / 2 / np.pi / (sigma ** 2) * np.exp(
+                -1 / 2 * ((i - spread * sigma - 0.5) ** 2 + (j - spread * sigma - 0.5) ** 2) / (sigma ** 2))
+
+    gaussian_heatmap = (gaussian_heatmap / np.max(gaussian_heatmap) * 255)
+'''
+
+def sigmoid(x, hard_label_threshold, negative_thresholdm, positive_threshold):
+
+    sigmoid = 2 * ((1 / (1 +np.exp(-x / hard_label_threshold))) - 0.5)
+    return sigmoid
+
+def circle(x, hard_label_threshold, negative_threshold, positive_threshold):
+    positive_length = hard_label_threshold - positive_threshold
+    y = np.zeros(x.shape)
+    y[x >= positive_threshold] = np.sqrt(2 * ((x[x >= positive_threshold] - positive_threshold) / (positive_length)) - np.square((x[x >= positive_threshold] - positive_threshold) / positive_length))
+    y[x < negative_threshold] = -np.sqrt(1 - np.square((x[x < negative_threshold]) / negative_threshold))
+    return y
 
 def compute_gt_annotations(
     anchors,
     annotations,
-    negative_overlap=0.4,
-    positive_overlap=0.5
+    negative_overlap=0.3,#0.4
+    positive_overlap=0.35#0.5 before#Down the threshold
 ):
     """ Obtain indices of gt annotations with the greatest overlap.
 
@@ -137,14 +177,25 @@ def compute_gt_annotations(
     """
 
     overlaps = compute_overlap(anchors.astype(np.float64), annotations.astype(np.float64))
+    #print("anchors: ", anchors.shape)
+    #print("annos: ", annotations.shape)
+    #print("overlaps: ", overlaps.shape)
     argmax_overlaps_inds = np.argmax(overlaps, axis=1)
     max_overlaps = overlaps[np.arange(overlaps.shape[0]), argmax_overlaps_inds]
+    #print("argmax_overlaps_inds: ", argmax_overlaps_inds.shape)
+    #print("max_overlaps: ", max_overlaps.shape)
 
     # assign "dont care" labels
     positive_indices = max_overlaps >= positive_overlap
     ignore_indices = (max_overlaps > negative_overlap) & ~positive_indices
 
-    return positive_indices, ignore_indices, argmax_overlaps_inds
+    #calculate soft label
+    hard_label_threshold = 0.5
+    soft_label = max_overlaps
+    soft_label[soft_label >= hard_label_threshold] = 1
+    soft_label[soft_label < hard_label_threshold] = circle(soft_label[soft_label < hard_label_threshold], hard_label_threshold, negative_overlap, positive_overlap)
+
+    return positive_indices, ignore_indices, argmax_overlaps_inds, soft_label #max_overlaps added
 
 
 def layer_shapes(image_shape, model):

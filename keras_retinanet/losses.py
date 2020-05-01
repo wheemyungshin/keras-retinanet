@@ -16,7 +16,7 @@ limitations under the License.
 
 import keras
 from . import backend
-
+import numpy as np
 
 def focal(alpha=0.25, gamma=2.0):
     """ Create a functor for computing the focal loss.
@@ -50,19 +50,26 @@ def focal(alpha=0.25, gamma=2.0):
         classification = backend.gather_nd(classification, indices)
 
         # compute the focal loss
-        alpha_factor = keras.backend.ones_like(labels) * alpha
-        alpha_factor = backend.where(keras.backend.equal(labels, 1), alpha_factor, 1 - alpha_factor)
-        focal_weight = backend.where(keras.backend.equal(labels, 1), 1 - classification, classification)
-        focal_weight = alpha_factor * focal_weight ** gamma
+        #alpha_factor = keras.backend.ones_like(labels) * alpha
+        #alpha_factor = backend.where(keras.backend.equal(labels, 1), alpha_factor, 1 - alpha_factor)
+        #focal_weight = backend.where(keras.backend.equal(labels, 1), 1 - classification, classification)
+        #focal_weight = alpha_factor * focal_weight ** gamma
 
-        cls_loss = focal_weight * keras.backend.binary_crossentropy(labels, classification)
+        is_positive_label = backend.where(keras.backend.less(labels, 0.0), 0.0, 1.0)
+        #cls_loss = keras.backend.binary_crossentropy(is_hard_label, abs(classification - labels))
+        #print(abs(classification - labels))
+        #cls_loss = keras.backend.binary_crossentropy(labels, classification)
+        abs_labels = keras.backend.abs(labels)
+        cls_loss = abs_labels  * keras.backend.binary_crossentropy(is_positive_label, classification)
+
 
         # compute the normalizer: the number of positive anchors
         normalizer = backend.where(keras.backend.equal(anchor_state, 1))
         normalizer = keras.backend.cast(keras.backend.shape(normalizer)[0], keras.backend.floatx())
         normalizer = keras.backend.maximum(keras.backend.cast_to_floatx(1.0), normalizer)
 
-        return keras.backend.sum(cls_loss) / normalizer
+        return (keras.backend.sum(cls_loss) / normalizer)
+        #return keras.backend.sum(cls_loss)
 
     return _focal
 

@@ -55,8 +55,8 @@ def anchor_targets_bbox(
     image_group,
     annotations_group,
     num_classes,
-    negative_overlap=0.4,
-    positive_overlap=0.5
+    negative_overlap=0.45,
+    positive_overlap=0.451
 ):
     """ Generate anchor targets for bbox detection.
 

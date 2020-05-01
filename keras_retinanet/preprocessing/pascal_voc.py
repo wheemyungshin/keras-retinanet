@@ -91,8 +91,9 @@ class PascalVocGenerator(Generator):
         self.data_dir             = data_dir
         self.set_name             = set_name
         self.classes              = classes
-        self.image_names          = [l.strip().split(None, 1)[0] for l in open(os.path.join(data_dir, 'VOC2007' , 'ImageSets', 'Main', set_name + '.txt')).readlines()]+\
-                                    [l.strip().split(None, 1)[0] for l in open(os.path.join(data_dir, 'VOC2012', 'ImageSets', 'Main',set_name + '.txt')).readlines()]
+        self.image_names          = [l.strip().split(None, 1)[0] for l in open(os.path.join(data_dir, 'VOC2007' , 'ImageSets', 'Main', set_name + '.txt')).readlines()]
+        if (os.path.exists(os.path.join(data_dir, 'VOC2012'))):
+            self.image_names      = self.image_names + [l.strip().split(None, 1)[0] for l in open(os.path.join(data_dir, 'VOC2012', 'ImageSets', 'Main',set_name + '.txt')).readlines()]
         self.len_2007 = len([l.strip().split(None, 1)[0] for l in open(os.path.join(data_dir, 'VOC2007' , 'ImageSets', 'Main', set_name + '.txt')).readlines()])
         self.image_extension      = image_extension
         self.skip_truncated       = skip_truncated
